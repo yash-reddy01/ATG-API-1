@@ -1,5 +1,9 @@
 # User API
 
+### To Run the repository 
+
+        Run command:  `npm install`
+
 API Endpoints : 
 
  1. ### User Registration
