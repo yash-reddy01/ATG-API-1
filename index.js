@@ -3,6 +3,9 @@ const { User, Post } = require("./db");
 const z = require("zod");
 const mongoose = require('mongoose');
 const ObjectId = mongoose.Types.ObjectId;
+const jwt = require('jsonwebtoken');
+const { JWT_SECRET } = require("./config");
+const { authMiddleware } = require("./middleware");
 
 
 const app = express();
@@ -39,14 +42,19 @@ app.post("/signup", async (req, res) => {
         })
     }
 
-    await User.create({
+    const user = await User.create({
         username: data.username,
         password: data.password,
         email: data.email
     })
 
+    const userId = user._id;
+    
+    const token = jwt.sign({userId}, JWT_SECRET)
+
     return res.status(200).json({
-        "message": "Successfully created"
+        message: "Successfully created",
+        token: token
     })
 
 });
@@ -59,6 +67,7 @@ const signIn = z.object({
 
 app.post("/signin", async (req, res) => {
     const { success } = signIn.safeParse(req.body);
+
 
     if(!success) {
         return res.status(411).json({
@@ -77,8 +86,13 @@ app.post("/signin", async (req, res) => {
         })
     }
 
+    const userId = existingUser._id;
+
+    const token = jwt.sign({userId}, JWT_SECRET);
+
     return res.status(200).json({
-        "message": "Login successful"
+        "message": "Login successful",
+        token: token
     })
 });
 
@@ -88,7 +102,7 @@ const forgotPass = z.object({
     username: z.string(),
 })
 
-app.put("/forgotpassword", async (req, res) => {
+app.put("/forgotpassword", authMiddleware, async (req, res) => {
     const { success } = forgotPass.safeParse(req.query);
 
     if(!success) {
@@ -125,13 +139,13 @@ app.put("/forgotpassword", async (req, res) => {
 })
 
 //4. To get all the posts 
-app.get('/posts', async (req, res) => {
+app.get('/posts', authMiddleware, async (req, res) => {
     const posts = await Post.find();
     res.json(posts);
 });
 
 // 5. To get all posts related to the user
-app.get('/posts/:user', async (req, res) => {
+app.get('/posts/:user', authMiddleware, async (req, res) => {
     const user = req.params.user;
 
     const existingUser = await User.findOne({
@@ -152,7 +166,7 @@ app.get('/posts/:user', async (req, res) => {
 });
 
 // 6. To create posts
-app.post('/posts', async (req, res) => {
+app.post('/posts', authMiddleware, async (req, res) => {
     try {
         const user = req.query.username;
         const content = req.body.content;
@@ -186,7 +200,7 @@ app.post('/posts', async (req, res) => {
 });
 
 // 7. To update posts of a user
-app.put('/posts/:postId', async (req, res) => {
+app.put('/posts/:postId', authMiddleware, async (req, res) => {
     try {
 
         const postId = req.params.postId;
@@ -218,7 +232,7 @@ app.put('/posts/:postId', async (req, res) => {
 });
 
 // 8. To delete the post
-app.delete('/posts/:postId', async (req, res) => {
+app.delete('/posts/:postId', authMiddleware, async (req, res) => {
     const postid = req.params.postId;
 
     if (!ObjectId.isValid(postid)) {
@@ -243,7 +257,7 @@ app.delete('/posts/:postId', async (req, res) => {
 });
 
 // 9. To like a post
-app.post('/posts/:postId/like', async (req, res) => {
+app.post('/posts/:postId/like', authMiddleware, async (req, res) => {
     try {
         const postId = req.params.postId;
 
@@ -278,7 +292,7 @@ app.post('/posts/:postId/like', async (req, res) => {
 });
 
 //10. To comment on a post
-app.post('/posts/:postId/comments', async (req, res) => {
+app.post('/posts/:postId/comments', authMiddleware, async (req, res) => {
     try {
         const postId = req.params.postId;
 
